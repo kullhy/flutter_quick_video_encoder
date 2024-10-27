@@ -28,7 +28,8 @@ enum ProfileLevel {
 }
 
 class FlutterQuickVideoEncoder {
-  static const MethodChannel _channel = const MethodChannel('flutter_quick_video_encoder/methods');
+  static const MethodChannel _channel =
+      const MethodChannel('flutter_quick_video_encoder/methods');
 
   // setup values
   static int width = 0;
@@ -80,7 +81,11 @@ class FlutterQuickVideoEncoder {
 
   /// append raw rgba video frame, 8 bits per channel
   static Future<void> appendVideoFrame(Uint8List rawRgba) async {
-    assert(rawRgba.length == width * height * 4, "invalid data length");
+    if (rawRgba.length != width * height * 4) {
+      print(
+          "Invalid data length: Expected ${width * height * 4}, but got ${rawRgba.length}");
+      return; // Hoặc xử lý cách khác tùy yêu cầu
+    }
     return await _invokeMethod('appendVideoFrame', {
       'rawRgba': rawRgba,
     });
@@ -90,7 +95,8 @@ class FlutterQuickVideoEncoder {
   ///  - 16 bit, little-endiant
   ///  - when using stereo audio, samples should be interleaved left channel first
   static Future<void> appendAudioFrame(Uint8List rawPcm) async {
-    assert(rawPcm.length == (sampleRate * audioChannels * 2) / fps, "invalid data length");
+    assert(rawPcm.length == (sampleRate * audioChannels * 2) / fps,
+        "invalid data length");
     return await _invokeMethod('appendAudioFrame', {
       'rawPcm': rawPcm,
     });
@@ -122,7 +128,8 @@ class FlutterQuickVideoEncoder {
     // log args
     if (logLevel.index >= LogLevel.standard.index) {
       if (method == "appendVideoFrame") {
-        print("[FQVE] '<$method>' rawRgba: ${arguments['rawRgba'].length} bytes");
+        print(
+            "[FQVE] '<$method>' rawRgba: ${arguments['rawRgba'].length} bytes");
       } else if (method == "appendAudioFrame") {
         print("[FQVE] '<$method>' rawPcm: ${arguments['rawPcm'].length} bytes");
       } else {

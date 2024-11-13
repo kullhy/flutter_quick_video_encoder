@@ -147,4 +147,12 @@ class FlutterQuickVideoEncoder {
 
     return result;
   }
+
+  static Future<void> dispose() async{
+    try {
+      await _invokeMethod('release');
+    } catch(e){
+      //
+    }
+  }
 }

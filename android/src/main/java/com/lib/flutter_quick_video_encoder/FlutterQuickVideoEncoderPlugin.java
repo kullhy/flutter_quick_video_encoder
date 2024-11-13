@@ -252,17 +252,21 @@ public class FlutterQuickVideoEncoderPlugin implements
                 }
                 case "finish": {
                     // if processing error, throw exception
-                    if (processingResult.isDone()) {
+                    try {
+                        if (processingResult.isDone()) {
+                            processingResult.get();
+                        }
+
+                        // Send STOP signal
+                        inputQueue.put(new InputData(InputData.DataType.STOP, null));
+
+                        // Wait for processingResult to complete
                         processingResult.get();
+
+                        result.success(null);
+                    } catch (Exception e) {
+                        result.success(null);
                     }
-
-                    // Send STOP signal
-                    inputQueue.put(new InputData(InputData.DataType.STOP, null));
-
-                    // Wait for processingResult to complete
-                    processingResult.get();
-
-                    result.success(null);
                     break;
                 }
                 default:
@@ -325,6 +329,9 @@ public class FlutterQuickVideoEncoderPlugin implements
                     mMediaMuxer.release();
                     mMediaMuxer = null;
                 }
+                // videoQueue.clear();
+                // audioQueue.clear();
+                // inputQueue.clear();
 
                 // Complete successfully
                 processingResult.complete(null);

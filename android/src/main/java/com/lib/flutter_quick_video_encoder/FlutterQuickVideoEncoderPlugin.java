@@ -210,28 +210,34 @@ public class FlutterQuickVideoEncoderPlugin implements
                     break;
                 }
                 case "appendVideoFrame": {
-                    // if processing error, throw exception
                     if (processingResult.isDone()) {
                         processingResult.get();
                     }
 
+                    // Kiểm tra bộ nhớ
+                    if (isMemoryLow()) {
+                        // Xóa tất cả hàng đợi và dừng quy trình
+                        inputQueue.clear();
+                        videoQueue.clear();
+                        audioQueue.clear();
+                        stopProcessingThread();
+                        result.error("MemoryError", "Insufficient memory, process stopped.", null);
+                        return;
+                    }
+
                     byte[] rawRgba = call.argument("rawRgba");
 
-                    // Convert RGBA to YUV420
-                    // Perf: we get better results doing this here on the Platform thread,
-                    // as opposed to doing it in the processing thread.
+                    // Chuyển đổi RGBA sang YUV420
                     byte[] yuv420 = rgbaToYuv420Planar(rawRgba, mWidth, mHeight);
 
-                    // Create InputData
+                    // Tạo InputData và đưa vào hàng đợi inputQueue
                     InputData inputData = new InputData(InputData.DataType.VIDEO, yuv420);
-
-                    // Put InputData into inputQueue (blocks if full)
                     inputQueue.put(inputData);
 
-                    // Return immediately
                     result.success(null);
                     break;
                 }
+
                 case "appendAudioFrame": {
                     // if processing error, throw exception
                     if (processingResult.isDone()) {
@@ -247,6 +253,11 @@ public class FlutterQuickVideoEncoderPlugin implements
                     inputQueue.put(inputData);
 
                     // Return immediately
+                    result.success(null);
+                    break;
+                }
+                case "release": {
+                    releaseResources();
                     result.success(null);
                     break;
                 }
@@ -281,6 +292,18 @@ public class FlutterQuickVideoEncoderPlugin implements
             result.error("androidException", e.toString(), stackTrace);
             return;
         }
+    }
+
+    private boolean isMemoryLow() {
+        Runtime runtime = Runtime.getRuntime();
+        long freeMemory = runtime.freeMemory();
+        long totalMemory = runtime.totalMemory();
+        long maxMemory = runtime.maxMemory();
+
+        // Ngưỡng cảnh báo, ví dụ nếu bộ nhớ sử dụng vượt quá 90% maxMemory
+        long threshold = (long) (0.9 * maxMemory);
+
+        return (totalMemory - freeMemory) > threshold;
     }
 
     private void stopProcessingThread() throws InterruptedException {
@@ -650,4 +673,56 @@ public class FlutterQuickVideoEncoderPlugin implements
             }
         }
     }
+
+    public void releaseResources() {
+        try {
+            // Dừng và giải phóng MediaCodec cho video
+            if (mVideoEncoder != null) {
+                try {
+                    mVideoEncoder.stop();
+                } catch (Exception e) {
+                    Log.e(TAG, "Error stopping video encoder", e);
+                }
+                mVideoEncoder.release();
+                mVideoEncoder = null;
+            }
+
+            // Dừng và giải phóng MediaCodec cho audio
+            if (mAudioEncoder != null) {
+                try {
+                    mAudioEncoder.stop();
+                } catch (Exception e) {
+                    Log.e(TAG, "Error stopping audio encoder", e);
+                }
+                mAudioEncoder.release();
+                mAudioEncoder = null;
+            }
+
+            // Dừng và giải phóng MediaMuxer
+            if (mMediaMuxer != null) {
+                try {
+                    if (mMuxerStarted) {
+                        mMediaMuxer.stop();
+                    }
+                } catch (Exception e) {
+                    Log.e(TAG, "Error stopping media muxer", e);
+                }
+                mMediaMuxer.release();
+                mMediaMuxer = null;
+            }
+
+            // Xóa các hàng đợi
+            videoQueue.clear();
+            audioQueue.clear();
+            inputQueue.clear();
+
+            // Dừng luồng xử lý
+            stopProcessingThread();
+
+            Log.i(TAG, "All resources have been released successfully.");
+        } catch (Exception e) {
+            Log.e(TAG, "Error releasing resources", e);
+        }
+    }
+
 }

@@ -3,7 +3,7 @@
 # Run `pod lib lint flutter_quick_video_encoder.podspec` to validate before publishing.
 #
 Pod::Spec.new do |s|
-  s.name             = 'flutter_quick_video_encoder'
+  s.name             = 'flutter_quick_video_encoder_fork'
   s.version          = '0.0.1'
   s.summary          = 'Flutter plugin for video encoding'
   s.description      = 'Flutter plugin for video encoding'
